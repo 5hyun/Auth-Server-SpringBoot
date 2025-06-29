@@ -52,3 +52,4 @@ application-*.properties
 application-*.yml
 application-*.yaml
 src/main/resources/application.properties
+.env
