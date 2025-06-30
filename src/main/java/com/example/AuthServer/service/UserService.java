@@ -22,6 +22,13 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
+        /**
+         * 닉네임 중복 확인 로직을 여기에 추가합니다.
+         */
+        if (userRepository.findByNickName(request.getNickName()).isPresent()) {
+            throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+        }
+
         // 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.getPassword());
 

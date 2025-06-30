@@ -13,4 +13,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 조회 결과가 없을 수도 있으므로, Null-safe한 처리를 위해 Optional<User> 타입으로 반환받습니다.
      */
     Optional<User> findByEmail(String email);
+    /**
+     * 닉네임으로 사용자를 찾는 기능을 추가합니다.
+     * Spring Data JPA가 메소드 이름을 분석하여 쿼리를 자동으로 생성합니다.
+     */
+    Optional<User> findByNickName(String nickName);
 }
