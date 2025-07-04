@@ -1,38 +1,52 @@
 package com.example.AuthServer.config;
 
+import com.example.AuthServer.config.jwt.JwtAuthenticationFilter;
+import com.example.AuthServer.config.jwt.JwtTokenProvider;
+import com.example.AuthServer.service.CustomUserDetailsService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtTokenProvider jwtTokenProvider;
+    private final CustomUserDetailsService customUserDetailsService; // CustomUserDetailsService 주입
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // BCrypt 알고리즘을 사용하는 PasswordEncoder를 빈으로 등록합니다.
-        // BCrypt는 현재 가장 널리 사용되는 안전한 해싱 알고리즘 중 하나입니다.
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+        AuthenticationManagerBuilder authenticationManagerBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
+        authenticationManagerBuilder.userDetailsService(customUserDetailsService).passwordEncoder(passwordEncoder());
+        return authenticationManagerBuilder.build();
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // CSRF(Cross-Site Request Forgery) 보호를 비활성화합니다.
-                // REST API 서버는 보통 세션을 사용하지 않으므로 CSRF 보호가 불필요합니다.
                 .csrf(AbstractHttpConfigurer::disable)
-
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        // "/api/users/signup" 경로는 인증 없이 누구나 접근을 허용합니다.
-                        .requestMatchers("/api/users/signup").permitAll()
-                        // 그 외의 모든 요청은 인증된 사용자만 접근할 수 있습니다.
+                        .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
                         .anyRequest().authenticated()
-                );
+                )
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

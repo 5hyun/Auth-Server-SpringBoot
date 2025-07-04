@@ -1,48 +1,62 @@
 package com.example.AuthServer.service;
 
+import com.example.AuthServer.config.jwt.JwtTokenProvider;
 import com.example.AuthServer.domain.User;
 import com.example.AuthServer.dto.SignUpRequest;
+import com.example.AuthServer.dto.TokenInfo;
 import com.example.AuthServer.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor // final이 붙거나 @NotNull이 붙은 필드의 생성자를 자동으로 생성해주는 Lombok 어노테이션
+@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder; // 비밀번호 암호화를 위한 인코더
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
     public Long signUp(SignUpRequest request) {
-        // 이메일 중복 확인
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
-
-        /**
-         * 닉네임 중복 확인 로직을 여기에 추가합니다.
-         */
         if (userRepository.findByNickName(request.getNickName()).isPresent()) {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
-
-        // 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.getPassword());
-
-        // 사용자 정보 생성
         User user = User.builder()
                 .email(request.getEmail())
-                .password(encodedPassword) // 암호화된 비밀번호 사용
+                .password(encodedPassword)
                 .name(request.getName())
                 .nickName(request.getNickName())
                 .birth(request.getBirth())
                 .build();
-
-        // 사용자 정보 저장
         User savedUser = userRepository.save(user);
         return savedUser.getId();
+    }
+
+    @Transactional
+    public TokenInfo login(String email, String password) {
+        try {
+            // 1. 사용자 인증을 위한 토큰 생성
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email, password);
+
+            // 2. 실제 검증
+            Authentication authentication = authenticationManager.authenticate(authenticationToken);
+
+            // 3. 인증 정보를 기반으로 JWT 토큰 생성
+            return jwtTokenProvider.generateToken(authentication);
+        } catch (AuthenticationException e) {
+            // 4. 인증 실패 시 예외 처리
+            throw new IllegalArgumentException("회원 정보를 찾을 수 없습니다.");
+        }
     }
 }
