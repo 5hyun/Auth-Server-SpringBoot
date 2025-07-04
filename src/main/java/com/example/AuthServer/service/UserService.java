@@ -5,7 +5,9 @@ import com.example.AuthServer.domain.User;
 import com.example.AuthServer.dto.SignUpRequest;
 import com.example.AuthServer.dto.TokenInfo;
 import com.example.AuthServer.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -13,6 +15,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +27,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Transactional
     public Long signUp(SignUpRequest request) {
@@ -58,5 +64,25 @@ public class UserService {
             // 4. 인증 실패 시 예외 처리
             throw new IllegalArgumentException("회원 정보를 찾을 수 없습니다.");
         }
+    }
+
+    @Transactional
+    public void logout(HttpServletRequest request) {
+        // 1. Request Header 에서 Access Token 추출
+        String accessToken = jwtTokenProvider.resolveToken(request);
+
+        // 2. Access Token 유효성 검사
+        if (!StringUtils.hasText(accessToken) || !jwtTokenProvider.validateToken(accessToken)) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        // 3. Access Token 에서 Authentication 객체 가져오기
+        Authentication authentication = jwtTokenProvider.getAuthentication(accessToken);
+
+        // 4. Access Token 의 남은 유효 시간 계산
+        Long expiration = jwtTokenProvider.getExpiration(accessToken);
+
+        // 5. Access Token 을 Redis 에 블랙리스트로 저장
+        redisTemplate.opsForValue().set(accessToken, "logout", expiration, TimeUnit.MILLISECONDS);
     }
 }

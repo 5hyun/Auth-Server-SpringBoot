@@ -104,4 +104,18 @@ public class JwtTokenProvider {
             return e.getClaims();
         }
     }
+
+    public String resolveToken(jakarta.servlet.http.HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (org.springframework.util.StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    public Long getExpiration(String accessToken) {
+        java.util.Date expiration = parseClaims(accessToken).getExpiration();
+        long now = new java.util.Date().getTime();
+        return (expiration.getTime() - now);
+    }
 }

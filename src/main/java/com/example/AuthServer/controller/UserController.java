@@ -4,6 +4,7 @@ import com.example.AuthServer.dto.LoginRequest;
 import com.example.AuthServer.dto.SignUpRequest;
 import com.example.AuthServer.dto.TokenInfo;
 import com.example.AuthServer.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,5 +30,11 @@ public class UserController {
     public ResponseEntity<TokenInfo> login(@RequestBody LoginRequest loginRequest) {
         TokenInfo tokenInfo = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
         return ResponseEntity.ok(tokenInfo);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request) {
+        userService.logout(request);
+        return ResponseEntity.ok("로그아웃되었습니다.");
     }
 }
