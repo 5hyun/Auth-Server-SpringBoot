@@ -59,7 +59,12 @@ public class UserService {
             Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
             // 3. 인증 정보를 기반으로 JWT 토큰 생성
-            return jwtTokenProvider.generateToken(authentication);
+            TokenInfo tokenInfo = jwtTokenProvider.generateToken(authentication);
+
+            // 4. RefreshToken Redis 저장 (Key: RT:<email>, Value: refreshToken)
+            redisTemplate.opsForValue().set("RT:" + authentication.getName(), tokenInfo.getRefreshToken(), jwtTokenProvider.getExpiration(tokenInfo.getRefreshToken()), TimeUnit.MILLISECONDS);
+
+            return tokenInfo;
         } catch (AuthenticationException e) {
             // 4. 인증 실패 시 예외 처리
             throw new IllegalArgumentException("회원 정보를 찾을 수 없습니다.");
@@ -84,5 +89,47 @@ public class UserService {
 
         // 5. Access Token 을 Redis 에 블랙리스트로 저장
         redisTemplate.opsForValue().set(accessToken, "logout", expiration, TimeUnit.MILLISECONDS);
+
+        // 6. Refresh Token 삭제
+        if (redisTemplate.opsForValue().get("RT:" + authentication.getName()) != null) {
+            redisTemplate.delete("RT:" + authentication.getName());
+        }
+    }
+
+    @Transactional
+    public TokenInfo refreshTokens(String refreshToken) {
+        // 1. Refresh Token 유효성 검사
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new IllegalArgumentException("유효하지 않은 Refresh Token 입니다.");
+        }
+
+        // 2. Refresh Token 에서 Authentication 객체 가져오기
+        Authentication authentication;
+        try {
+            authentication = jwtTokenProvider.getAuthentication(refreshToken);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Refresh Token 에서 인증 정보를 가져올 수 없습니다: " + e.getMessage());
+        }
+
+        // 2-1. Authentication 객체에서 사용자 이름(이메일)이 null인 경우 처리
+        if (authentication.getName() == null) {
+            throw new IllegalArgumentException("Refresh Token 에 사용자 정보가 없습니다.");
+        }
+
+        // 3. Redis 에서 저장된 Refresh Token 가져오기
+        String storedRefreshToken = redisTemplate.opsForValue().get("RT:" + authentication.getName());
+
+        // 4. Redis 에 저장된 Refresh Token 이 없는 경우 또는 일치하지 않는 경우
+        if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
+            throw new IllegalArgumentException("Refresh Token 정보가 일치하지 않거나 만료되었습니다.");
+        }
+
+        // 5. 새로운 Access Token, Refresh Token 생성
+        TokenInfo newTokens = jwtTokenProvider.generateToken(authentication);
+
+        // 6. Redis Refresh Token 업데이트
+        redisTemplate.opsForValue().set("RT:" + authentication.getName(), newTokens.getRefreshToken(), jwtTokenProvider.getExpiration(newTokens.getRefreshToken()), TimeUnit.MILLISECONDS);
+
+        return newTokens;
     }
 }

@@ -37,4 +37,10 @@ public class UserController {
         userService.logout(request);
         return ResponseEntity.ok("로그아웃되었습니다.");
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenInfo> refresh(@RequestBody TokenInfo tokenInfo) {
+        TokenInfo newTokens = userService.refreshTokens(tokenInfo.getRefreshToken());
+        return ResponseEntity.ok(newTokens);
+    }
 }
