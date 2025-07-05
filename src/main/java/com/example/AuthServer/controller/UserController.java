@@ -35,7 +35,7 @@ public class UserController {
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpServletRequest request) {
         userService.logout(request);
-        return ResponseEntity.ok("로그아웃되었습니다.");
+        return ResponseEntity.ok("로그아웃 되었습니다.");
     }
 
     @PostMapping("/refresh")
