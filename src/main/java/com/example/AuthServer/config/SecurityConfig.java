@@ -17,6 +17,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
@@ -52,5 +58,30 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * CORS 설정을 위한 Bean을 추가합니다.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // ⭐️ 여기에 허용할 BFF 서버의 출처를 명시합니다.
+        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3333"));
+
+        // 허용할 HTTP 메서드를 설정합니다.
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+
+        // 허용할 HTTP 헤더를 설정합니다.
+        configuration.setAllowedHeaders(Collections.singletonList("*"));
+
+        // 자격 증명(쿠키 등)을 허용합니다.
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 모든 경로에 대해 위에서 정의한 CORS 설정을 적용합니다.
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
