@@ -15,6 +15,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.concurrent.TimeUnit;
@@ -131,5 +132,23 @@ public class UserService {
         redisTemplate.opsForValue().set("RT:" + authentication.getName(), newTokens.getRefreshToken(), jwtTokenProvider.getExpiration(newTokens.getRefreshToken()), TimeUnit.MILLISECONDS);
 
         return newTokens;
+    }
+
+    /**
+     * 전달된 Access Token의 유효성을 검증합니다.
+     * @param accessToken 검증할 Access Token
+     * @return 토큰이 유효하면 true, 그렇지 않으면 false
+     */
+    public boolean validateToken(String accessToken) {
+        // 1. 토큰 형식 및 유효성 검사
+        if (!StringUtils.hasText(accessToken) || !jwtTokenProvider.validateToken(accessToken)) {
+            return false;
+        }
+
+        // 2. Redis에 해당 토큰이 'logout' 상태인지 확인 (블랙리스트 확인)
+        String isLogout = redisTemplate.opsForValue().get(accessToken);
+
+        // 3. 로그아웃되지 않은 토큰인 경우 유효하다고 판단
+        return ObjectUtils.isEmpty(isLogout);
     }
 }

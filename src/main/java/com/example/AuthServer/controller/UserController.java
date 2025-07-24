@@ -8,10 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -42,5 +39,26 @@ public class UserController {
     public ResponseEntity<TokenInfo> refresh(@RequestBody TokenInfo tokenInfo) {
         TokenInfo newTokens = userService.refreshTokens(tokenInfo.getRefreshToken());
         return ResponseEntity.ok(newTokens);
+    }
+
+    /**
+     * Access Token의 유효성을 검증하는 엔드포인트입니다.
+     * @param request HttpServletRequest 객체로부터 'Authorization' 헤더를 읽어옵니다.
+     * @return 토큰이 유효하면 "유효한 토큰입니다." 메시지와 함께 200 OK, 그렇지 않으면 401 Unauthorized.
+     */
+    @GetMapping("/validate")
+    public ResponseEntity<String> validateToken(HttpServletRequest request) {
+        String accessToken = request.getHeader("Authorization");
+
+        // 'Bearer ' 접두사 제거
+        if (accessToken != null && accessToken.startsWith("Bearer ")) {
+            accessToken = accessToken.substring(7);
+        }
+
+        if (userService.validateToken(accessToken)) {
+            return ResponseEntity.ok("유효한 토큰입니다.");
+        } else {
+            return ResponseEntity.status(401).body("유효하지 않은 토큰입니다.");
+        }
     }
 }
